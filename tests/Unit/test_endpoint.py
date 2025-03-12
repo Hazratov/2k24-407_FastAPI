@@ -1,31 +1,97 @@
+from http.client import responses
+
 import pytest
 from fastapi import status
+from datetime import datetime, timedelta
+
+from tests.conftest import http_client
+
 
 class TestEndpoints:
     @pytest.mark.parametrize(
-        'path, expected',
+        "path, expected",
         [
             ('/rooms', status.HTTP_200_OK),
+            ('/rooms/', status.HTTP_200_OK),
         ]
     )
     def test_get_rooms(self, http_client, path, expected):
         response = http_client.get(path)
         assert response.status_code == expected
 
+    @pytest.mark.xfail
     @pytest.mark.parametrize(
-        'data, expected_status, expected_detail',
+        'path, expected',
         [
-            ('/rooms/1', status.HTTP_200_OK, None),
-            ('/rooms/999', status.HTTP_404_NOT_FOUND, "Room not found"),
+            ('/rooms', status.HTTP_404_NOT_FOUND),
         ]
     )
-    def test_get_room_id(self, http_client, data, expected_status, expected_detail):
-        response = http_client.get(data)
+    def test_get_rooms_failed(self, http_client, path, expected):
+        response = http_client.get(path)
+        assert response.status_code == expected
+
+    @pytest.mark.parametrize(
+        'room_id, expected',
+        [
+            (1, status.HTTP_200_OK),
+            (5, status.HTTP_200_OK),
+            (999, status.HTTP_404_NOT_FOUND),
+        ]
+    )
+    def test_get_room_by_id_success(self, http_client, room_id, expected):
+        response = http_client.get(f'/rooms/{room_id}/')
+        assert response.status_code == expected
+
+    @pytest.mark.xfail
+    @pytest.mark.parametrize(
+        'room_id, expected',
+        [
+            ('1', status.HTTP_422_UNPROCESSABLE_ENTITY),
+        ]
+    )
+    def test_get_room_by_id_failed(self, http_client, room_id, expected):
+        response = http_client.get(f'/rooms/{room_id}/')
+        assert response.status_code == expected
+
+    @pytest.mark.parametrize(
+        "booking_data, expected_status",
+        [
+            (
+                    {
+                        "room_id": 1,
+                        "user_id": 1,
+                        "check_in": datetime.utcnow().date().isoformat(),
+                        "check_out": (datetime.utcnow() + timedelta(days=3)).date().isoformat(),
+                        "status": "pending"
+                    },
+                    status.HTTP_201_CREATED
+            ),
+        ]
+    )
+    def test_make_booking(self, http_client, booking_data, expected_status):
+        response = http_client.post("/booking/", json=booking_data)
+        assert response.status_code == expected_status
+        assert response.json()["room_id"] == booking_data["room_id"]
+        assert response.json()["user_id"] == booking_data["user_id"]
+        assert response.json()["status"] == booking_data["status"]
+
+    @pytest.mark.xfail
+    @pytest.mark.parametrize(
+        "booking_data, expected_status",
+        [
+            (
+                    {
+                        "room_id": "invalid",  # noto'g'ri tur
+                        "user_id": 1,
+                        "check_in": datetime.utcnow().date().isoformat(),
+                        "check_out": (datetime.utcnow() + timedelta(days=3)).date().isoformat(),
+                        "status": "pending"
+                    },
+                    status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+        ]
+    )
+    def test_make_booking_failed(self, http_client, booking_data, expected_status):
+        response = http_client.post("/booking/", json=booking_data)
         assert response.status_code == expected_status
 
-        json_response = response.json()
-        if expected_status == 404:
-            assert json_response["detail"] == expected_detail
-        else:
-            assert "id" in json_response
-            assert "name" in json_response

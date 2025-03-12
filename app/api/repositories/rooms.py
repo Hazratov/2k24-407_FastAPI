@@ -1,3 +1,5 @@
+from http.client import HTTPException
+
 from fastapi import Depends
 
 from sqlalchemy import text
@@ -30,7 +32,11 @@ class RoomsRepository:
         FROM rooms as m
         JOIN rooms_status as f ON m.status = f.id
         JOIN rooms_type as s ON m.room_type = s.id
-        where m.room_number = :room_id
-        """)
-        stmt = await self.session.execute(raw_sql, {"room_id": room_id})
+        where m.id = :room_id
+        """).params(room_id=room_id)
+        stmt = await self.session.execute(raw_sql)
+        if not stmt:
+            raise HTTPException(
+                status_code=404, detail="Room not found"
+            )
         return RoomsSchema.model_validate(stmt.mappings().first())
