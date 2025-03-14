@@ -1,5 +1,4 @@
 from http.client import responses
-
 import pytest
 from fastapi import status
 from datetime import datetime, timedelta
@@ -95,3 +94,77 @@ class TestEndpoints:
         response = http_client.post("/booking/", json=booking_data)
         assert response.status_code == expected_status
 
+    @pytest.mark.parametrize(
+        "rooms_path, expected_status",
+        [
+            ('/rooms_type/', status.HTTP_200_OK),
+            ('/rooms_type', status.HTTP_404_NOT_FOUND),
+        ]
+    )
+    def test_get_rooms_type(self, http_client, rooms_path, expected_status):
+        response = http_client.get(rooms_path)
+        assert response.status_code == expected_status
+
+    @pytest.mark.parametrize(
+        "payload, expected_status",
+        [
+            (
+                {
+                    "title": "Hello",
+                },
+                status.HTTP_200_OK,
+            )
+        ]
+    )
+    def test_post_rooms_type(self, http_client, payload, expected_status):
+        response = http_client.post("/rooms_type/", json=payload)
+        assert response.json()["title"] == payload["title"]
+        assert response.status_code == expected_status
+
+
+    @pytest.mark.xfail
+    @pytest.mark.parametrize(
+        "payload, expected_status",
+        [
+            (
+                    {
+                        "title": 3,
+                    },
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            (
+                    {
+                        "title": {},
+                    },
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        ]
+    )
+    def test_post_rooms_type_failed(self, http_client, payload, expected_status):
+        response = http_client.post("/rooms_type/", json=payload)
+        assert response.status_code == expected_status
+
+
+    @pytest.mark.parametrize(
+        "id, data, expected_status",
+        [
+            (1, "Hello", status.HTTP_200_OK),
+            (5, "Hello", status.HTTP_200_OK),
+        ]
+    )
+    def test_get_room_id(self, http_client, id, data, expected_status):
+        response = http_client.get(f'/rooms/{id}/')
+        assert response.status_code == expected_status
+        assert response.json()["id"] == id
+
+
+    @pytest.mark.parametrize(
+        "data_id, expected_status",
+        [
+            (1, status.HTTP_202_ACCEPTED),
+            (5, status.HTTP_202_ACCEPTED),
+        ]
+    )
+    def test_delete_room_id(self, http_client, data_id, expected_status):
+        response = http_client.delete(f'/rooms/{data_id}/')
+        assert response.status_code == expected_status
