@@ -1,5 +1,4 @@
 from datetime import timedelta, date
-
 import pytest
 from pytest_mock import MockerFixture
 
